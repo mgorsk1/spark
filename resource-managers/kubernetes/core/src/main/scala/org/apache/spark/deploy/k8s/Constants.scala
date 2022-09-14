@@ -16,7 +16,7 @@
  */
 package org.apache.spark.deploy.k8s
 
-private[spark] object Constants {
+object Constants {
 
   // Labels
   val SPARK_APP_ID_LABEL = "spark-app-selector"
@@ -116,4 +116,23 @@ private[spark] object Constants {
   val APP_RESOURCE_TYPE_JAVA = "java"
   val APP_RESOURCE_TYPE_PYTHON = "python"
   val APP_RESOURCE_TYPE_R = "r"
+
+  // Volcano Job Name
+  // note that the name **must** start with "spark.", otherwise it gets
+  // filtered out in the driver
+  // see https://github.com/apache/spark/blob/0494dc90af48ce7da0625485a4dc6917a244d580/core/src/main/scala/org/apache/spark/deploy/SparkSubmitArguments.scala
+  val DRIVER_VOLCANO_JOB_NAME_KEY = "spark.volcano.driver.job.name"
+  val EXECUTOR_VOLCANO_JOB_PREFIX_KEY = "spark.volcano.executor.job.prefix"
+
+  // Volcano Job Name label key
+  val VOLCANO_JOB_NAME_LABEL_KEY = "volcano.sh/job-name"
+
+  val VOLCANO_DYNAMIC_LABEL = "volcano.sh/counter-label"
+  val VOLCANO_JOB_RECLAIMABLE_LABEL = "volcano.sh/reclaimable"
+
+  val VOLCANO_ANNOTATION_DYNAMIC_QUEUE_NAME = "volcano.sh/dynamic-queue"
+
+  // This label ensures that the Spark driver & executor pod creation triggers the pod admission webhook
+  // when scheduled by Volcano
+  val VOLCANO_POD_ADMISSION_LABEL = "volcano.sh/scheduled-by-volcano"
 }

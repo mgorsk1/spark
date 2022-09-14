@@ -60,7 +60,17 @@ private[spark] class DriverCommandFeatureStep(conf: KubernetesDriverConf)
         APP_RESOURCE_TYPE_R
     }
 
-    Map(APP_RESOURCE_TYPE.key -> appType)
+    // If Volcano is enabled, add the Volcano Job Name used by the current run of
+    // spark-submit so that Driver can read it from there
+    if (conf.get(KUBERNETES_VOLCANO_ENABLED)) {
+      Map(
+        APP_RESOURCE_TYPE.key -> appType,
+        DRIVER_VOLCANO_JOB_NAME_KEY -> KubernetesClientUtils.DRIVER_VOLCANO_JOB_NAME,
+        EXECUTOR_VOLCANO_JOB_PREFIX_KEY -> KubernetesClientUtils.EXECUTOR_VOLCANO_JOB_NAME_PREFIX
+      )
+    } else {
+      Map(APP_RESOURCE_TYPE.key -> appType)
+    }
   }
 
   private def configureForJava(pod: SparkPod, res: String): SparkPod = {

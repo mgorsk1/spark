@@ -238,6 +238,6 @@ private[spark] class ExecutorPodsLifecycleManager(
   }
 }
 
-private object ExecutorPodsLifecycleManager {
+object ExecutorPodsLifecycleManager {
   val UNKNOWN_EXIT_CODE = -1
 }

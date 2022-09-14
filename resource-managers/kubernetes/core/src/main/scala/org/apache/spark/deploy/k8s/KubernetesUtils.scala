@@ -23,7 +23,7 @@ import java.util.{Collections, UUID}
 
 import scala.collection.JavaConverters._
 
-import io.fabric8.kubernetes.api.model.{Container, ContainerBuilder, ContainerStateRunning, ContainerStateTerminated, ContainerStateWaiting, ContainerStatus, HasMetadata, OwnerReferenceBuilder, Pod, PodBuilder, Quantity}
+import io.fabric8.kubernetes.api.model._
 import io.fabric8.kubernetes.client.KubernetesClient
 import org.apache.commons.codec.binary.Hex
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -36,8 +36,9 @@ import org.apache.spark.launcher.SparkLauncher
 import org.apache.spark.resource.ResourceUtils
 import org.apache.spark.util.{Clock, SystemClock, Utils}
 import org.apache.spark.util.Utils.getHadoopFileSystem
+import org.apache.spark.{SparkConf, SparkException}
 
-private[spark] object KubernetesUtils extends Logging {
+object KubernetesUtils extends Logging {
 
   private val systemClock = new SystemClock()
   private lazy val RNG = new SecureRandom()

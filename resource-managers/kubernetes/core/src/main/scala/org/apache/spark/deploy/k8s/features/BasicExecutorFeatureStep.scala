@@ -120,7 +120,6 @@ private[spark] class BasicExecutorFeatureStep(
           (ENV_APPLICATION_ID, kubernetesConf.appId),
           // This is to set the SPARK_CONF_DIR to be /opt/spark/conf
           (ENV_SPARK_CONF_DIR, SPARK_CONF_DIR_INTERNAL),
-          (ENV_EXECUTOR_ID, kubernetesConf.executorId),
           (ENV_RESOURCE_PROFILE_ID, resourceProfile.id.toString)
         ) ++ kubernetesConf.environment).map { case (k, v) =>
           new EnvVarBuilder()
@@ -129,12 +128,13 @@ private[spark] class BasicExecutorFeatureStep(
             .build()
         }
       } ++ {
-        Seq(new EnvVarBuilder()
-          .withName(ENV_EXECUTOR_POD_IP)
-          .withValueFrom(new EnvVarSourceBuilder()
-            .withNewFieldRef("v1", "status.podIP")
-            .build())
+      val podIP: EnvVarBuilder = new EnvVarBuilder()
+        .withName(ENV_EXECUTOR_POD_IP)
+        .withValueFrom(new EnvVarSourceBuilder()
+          .withNewFieldRef("v1", "status.podIP")
           .build())
+
+      Seq(podIP.build())
       } ++ {
         if (kubernetesConf.get(AUTH_SECRET_FILE_EXECUTOR).isEmpty) {
           Option(secMgr.getSecretKey()).map { authSecret =>
@@ -210,6 +210,14 @@ private[spark] class BasicExecutorFeatureStep(
       .addNewEnv()
         .withName(ENV_SPARK_USER)
         .withValue(Utils.getCurrentUserName())
+        .endEnv()
+      .addNewEnv()
+        .withName(ENV_EXECUTOR_ID)
+        .withNewValueFrom()
+        .withNewFieldRef()
+        .withNewFieldPath(s"metadata.labels['${SPARK_EXECUTOR_ID_LABEL}']")
+        .endFieldRef()
+        .endValueFrom()
         .endEnv()
       .addAllToEnv(executorEnv.asJava)
       .withPorts(requiredPorts.asJava)

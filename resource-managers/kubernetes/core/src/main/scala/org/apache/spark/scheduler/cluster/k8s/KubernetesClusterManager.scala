@@ -30,6 +30,12 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler.{ExternalClusterManager, SchedulerBackend, TaskScheduler, TaskSchedulerImpl}
 import org.apache.spark.util.{SystemClock, ThreadUtils}
 
+import org.apache.spark.volcano.VolcanoOperator
+import org.apache.spark.volcano.scheduler.VolcanoExecutorPodsAllocator
+
+import java.io.File
+import java.util.concurrent.TimeUnit
+
 private[spark] class KubernetesClusterManager extends ExternalClusterManager with Logging {
 
   override def canCreate(masterURL: String): Boolean = masterURL.startsWith("k8s")
@@ -103,28 +109,51 @@ private[spark] class KubernetesClusterManager extends ExternalClusterManager wit
     val subscribersExecutor = ThreadUtils
       .newDaemonThreadPoolScheduledExecutor(
         "kubernetes-executor-snapshots-subscribers", 2)
+    val volcanoEnabled: Boolean = sc.conf.get(KUBERNETES_VOLCANO_ENABLED)
     val snapshotsStore = new ExecutorPodsSnapshotsStoreImpl(subscribersExecutor)
 
     val removedExecutorsCache = CacheBuilder.newBuilder()
       .expireAfterWrite(3, TimeUnit.MINUTES)
       .build[java.lang.Long, java.lang.Long]()
+
+    val volcanoOperator: VolcanoOperator = new VolcanoOperator(kubernetesClient, sc.conf)
+    val executorPodsAllocator: ExecutorPodsAllocator = {
+      if (volcanoEnabled) {
+        new VolcanoExecutorPodsAllocator(
+          sc.conf,
+          sc.env.securityManager,
+          new KubernetesExecutorBuilder(),
+          kubernetesClient,
+          snapshotsStore,
+          new SystemClock(),
+          volcanoOperator,
+          wasSparkSubmittedInClusterMode,
+          sc.conf.get(KUBERNETES_VOLCANO_REQUEST_EXECUTOR_ONCE)
+        )
+      } else {
+        new ExecutorPodsAllocator(
+          sc.conf,
+          sc.env.securityManager,
+          new KubernetesExecutorBuilder(),
+          kubernetesClient,
+          snapshotsStore,
+          new SystemClock()
+        )
+      }
+    }
+
     val executorPodsLifecycleEventHandler = new ExecutorPodsLifecycleManager(
       sc.conf,
       kubernetesClient,
       snapshotsStore,
-      removedExecutorsCache)
-
-    val executorPodsAllocator = new ExecutorPodsAllocator(
-      sc.conf,
-      sc.env.securityManager,
-      new KubernetesExecutorBuilder(),
-      kubernetesClient,
-      snapshotsStore,
-      new SystemClock())
+      removedExecutorsCache
+    )
 
     val podsWatchEventSource = new ExecutorPodsWatchSnapshotSource(
       snapshotsStore,
-      kubernetesClient)
+      kubernetesClient,
+      volcanoEnabled
+    )
 
     val eventsPollingExecutor = ThreadUtils.newDaemonSingleThreadScheduledExecutor(
       "kubernetes-executor-pod-polling-sync")

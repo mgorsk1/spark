@@ -16,7 +16,6 @@
  */
 package org.apache.spark.scheduler.cluster.k8s
 
-import java.util.ArrayList
 import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.locks.ReentrantLock
@@ -26,11 +25,12 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 import io.fabric8.kubernetes.api.model.Pod
-
+import io.fabric8.kubernetes.api.model.volcano.batch.Job
 import org.apache.spark.internal.Logging
 import org.apache.spark.util.Clock
 import org.apache.spark.util.SystemClock
 import org.apache.spark.util.ThreadUtils
+import scala.collection.Map
 
 /**
  * Controls the propagation of the Spark application's executor pods state to subscribers that
@@ -133,11 +133,11 @@ private[spark] class ExecutorPodsSnapshotsStoreImpl(
         // comment below happens.
         if (notificationCount.get() > 0) {
           try {
-            val snapshots = new ArrayList[ExecutorPodsSnapshot]()
+            val snapshots = new java.util.ArrayList[ExecutorPodsSnapshot]()
             snapshotsBuffer.drainTo(snapshots)
-            onNewSnapshots(snapshots.asScala.toSeq)
+            onNewSnapshots(snapshots.asScala)
           } catch {
-            case e: IllegalArgumentException =>
+            case e: java.lang.IllegalArgumentException =>
               logError("Going to stop due to IllegalArgumentException", e)
               System.exit(1)
             case NonFatal(e) => logWarning("Exception when notifying snapshot subscriber.", e)

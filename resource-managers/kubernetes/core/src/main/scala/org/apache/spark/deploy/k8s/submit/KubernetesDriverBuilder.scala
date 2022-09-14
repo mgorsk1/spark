@@ -23,7 +23,7 @@ import io.fabric8.kubernetes.client.KubernetesClient
 import org.apache.spark.deploy.k8s._
 import org.apache.spark.deploy.k8s.features._
 
-private[spark] class KubernetesDriverBuilder {
+class KubernetesDriverBuilder {
 
   def buildFromFeatures(
       conf: KubernetesDriverConf,
@@ -48,7 +48,8 @@ private[spark] class KubernetesDriverBuilder {
       new HadoopConfDriverFeatureStep(conf),
       new KerberosConfDriverFeatureStep(conf),
       new PodTemplateConfigMapStep(conf),
-      new LocalDirsFeatureStep(conf))
+      new LocalDirsFeatureStep(conf)
+    )
 
     val spec = KubernetesDriverSpec(
       initialPod,

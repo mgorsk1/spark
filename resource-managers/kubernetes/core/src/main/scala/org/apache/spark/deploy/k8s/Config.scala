@@ -20,10 +20,9 @@ import java.util.concurrent.TimeUnit
 
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.internal.Logging
-import org.apache.spark.internal.config.{PYSPARK_DRIVER_PYTHON, PYSPARK_PYTHON}
-import org.apache.spark.internal.config.ConfigBuilder
+import org.apache.spark.internal.config.{ConfigBuilder, ConfigEntry, PYSPARK_DRIVER_PYTHON, PYSPARK_PYTHON}
 
-private[spark] object Config extends Logging {
+object Config extends Logging {
 
   val KUBERNETES_CONTEXT =
     ConfigBuilder("spark.kubernetes.context")
@@ -488,4 +487,67 @@ private[spark] object Config extends Logging {
   val KUBERNETES_VOLUMES_OPTIONS_SERVER_KEY = "options.server"
 
   val KUBERNETES_DRIVER_ENV_PREFIX = "spark.kubernetes.driverEnv."
+
+  val KUBERNETES_VOLCANO_ENABLED: ConfigEntry[Boolean] =
+    ConfigBuilder("spark.kubernetes.volcano.enabled")
+      .doc("Enable volcano")
+      .version("3.1.2")
+      .booleanConf
+      .createWithDefault(false)
+
+  val KUBERNETES_VOLCANO_QUEUE: ConfigEntry[String] =
+    ConfigBuilder("spark.kubernetes.volcano.queue")
+      .doc("Use this queue")
+      .version("3.1.2")
+      .stringConf
+      .createWithDefault("default")
+
+  val KUBERNETES_VOLCANO_SCHEDULER: ConfigEntry[String] =
+    ConfigBuilder("spark.kubernetes.volcano.scheduler")
+      .doc("Volcano Scheduler Name")
+      .version("3.1.2")
+      .stringConf
+      .createWithDefault("volcano")
+
+  val KUBERNETES_VOLCANO_MAX_RETRY: ConfigEntry[Int] =
+    ConfigBuilder("spark.kubernetes.volcano.maxRetry")
+      .doc("Volcano Jobs Max Retry")
+      .version("3.1.2")
+      .intConf
+      .createWithDefault(3)
+
+  val KUBERNETES_VOLCANO_TTL_SECONDS_AFTER_FINISHED: ConfigEntry[Int] =
+    ConfigBuilder("spark.kubernetes.volcano.ttlSecondsAfterFinished")
+      .doc("Volcano jobs TtlSecondsAfterFinished in seconds before the volcano job object is removed")
+      .version("3.1.2")
+      .intConf
+      .createWithDefault(10)
+
+  val KUBERNETES_VOLCANO_DELETE_DRIVER: ConfigEntry[Boolean] =
+    ConfigBuilder("spark.kubernetes.volcano.deleteDriverJob")
+      .doc("If set, delete the volcano driver job in cluster mode")
+      .version("3.1.2")
+      .booleanConf
+      .createWithDefault(false)
+
+  val KUBERNETES_VOLCANO_ADD_EXECUTOR_OWNER_REFERENCE: ConfigEntry[Boolean] =
+    ConfigBuilder("spark.kubernetes.volcano.addExecutorOwnerReference")
+      .doc("If set, executor Volcano Jobs are deleted when the driver pod is deleted.")
+      .version("3.1.2")
+      .booleanConf
+      .createWithDefault(true)
+
+  val KUBERNETES_VOLCANO_REQUEST_EXECUTOR_ONCE: ConfigEntry[Boolean] =
+    ConfigBuilder("spark.kubernetes.volcano.requestExecutorOnce")
+      .doc("If set, Replica Updates for Volcano ExecutorTask will be requested only once.")
+      .version("3.1.2")
+      .booleanConf
+      .createWithDefault(false)
+
+  val KUBERNETES_VOLCANO_DYNAMIC_QUEUE_PREFIX: ConfigEntry[String] =
+    ConfigBuilder("spark.kubernetes.volcano.dynamicQueuePrefix")
+      .doc("If set, add the dynamic queue annotation in driver & executor jobs by concatenating the prefix and queue name.")
+      .version("3.1.2")
+      .stringConf
+      .createWithDefault("")
 }

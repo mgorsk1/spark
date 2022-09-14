@@ -23,8 +23,7 @@ import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
-
-import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, PodBuilder}
+import io.fabric8.kubernetes.api.model.{PersistentVolumeClaim, Pod, PodBuilder}
 import io.fabric8.kubernetes.client.KubernetesClient
 
 import org.apache.spark.{SecurityManager, SparkConf, SparkException}
@@ -38,39 +37,43 @@ import org.apache.spark.resource.ResourceProfile
 import org.apache.spark.util.{Clock, Utils}
 
 private[spark] class ExecutorPodsAllocator(
-    conf: SparkConf,
-    secMgr: SecurityManager,
-    executorBuilder: KubernetesExecutorBuilder,
-    kubernetesClient: KubernetesClient,
-    snapshotsStore: ExecutorPodsSnapshotsStore,
-    clock: Clock) extends Logging {
+                                            conf: SparkConf,
+                                            secMgr: SecurityManager,
+                                            executorBuilder: KubernetesExecutorBuilder,
+                                            kubernetesClient: KubernetesClient,
+                                            snapshotsStore: ExecutorPodsSnapshotsStore,
+                                            clock: Clock
+                                          ) extends Logging {
 
-  private val EXECUTOR_ID_COUNTER = new AtomicLong(0L)
+  def createJob(): Unit = {}
+  def deleteJob(): Unit = {}
+
+  val EXECUTOR_ID_COUNTER = new AtomicLong(0L)
 
   // ResourceProfile id -> total expected executors per profile, currently we don't remove
   // any resource profiles - https://issues.apache.org/jira/browse/SPARK-30749
-  private val totalExpectedExecutorsPerResourceProfileId = new ConcurrentHashMap[Int, Int]()
+  val totalExpectedExecutorsPerResourceProfileId = new ConcurrentHashMap[Int, Int]()
 
-  private val rpIdToResourceProfile = new mutable.HashMap[Int, ResourceProfile]
+  val rpIdToResourceProfile = new mutable.HashMap[Int, ResourceProfile]
 
-  private val podAllocationSize = conf.get(KUBERNETES_ALLOCATION_BATCH_SIZE)
+  val podAllocationSize = conf.get(KUBERNETES_ALLOCATION_BATCH_SIZE)
 
-  private val podAllocationDelay = conf.get(KUBERNETES_ALLOCATION_BATCH_DELAY)
+  val podAllocationDelay = conf.get(KUBERNETES_ALLOCATION_BATCH_DELAY)
 
-  private val podCreationTimeout = math.max(
+  val podCreationTimeout = math.max(
     podAllocationDelay * 5,
     conf.get(KUBERNETES_ALLOCATION_EXECUTOR_TIMEOUT))
 
-  private val executorIdleTimeout = conf.get(DYN_ALLOCATION_EXECUTOR_IDLE_TIMEOUT) * 1000
+  val executorIdleTimeout = conf.get(DYN_ALLOCATION_EXECUTOR_IDLE_TIMEOUT) * 1000
 
-  private val namespace = conf.get(KUBERNETES_NAMESPACE)
+  val namespace: String = conf.get(KUBERNETES_NAMESPACE)
 
-  private val kubernetesDriverPodName = conf
+  def kubernetesDriverPodName: Option[String] = conf
     .get(KUBERNETES_DRIVER_POD_NAME)
 
-  private val shouldDeleteExecutors = conf.get(KUBERNETES_DELETE_EXECUTORS)
+  val shouldDeleteExecutors: Boolean = conf.get(KUBERNETES_DELETE_EXECUTORS)
 
-  val driverPod = kubernetesDriverPodName
+  def driverPod: Option[Pod] = kubernetesDriverPodName
     .map(name => Option(kubernetesClient.pods()
       .withName(name)
       .get())
@@ -80,23 +83,23 @@ private[spark] class ExecutorPodsAllocator(
 
   // Executor IDs that have been requested from Kubernetes but have not been detected in any
   // snapshot yet. Mapped to the (ResourceProfile id, timestamp) when they were created.
-  private val newlyCreatedExecutors = mutable.LinkedHashMap.empty[Long, (Int, Long)]
+   val newlyCreatedExecutors = mutable.LinkedHashMap.empty[Long, (Int, Long)]
 
   // Executor IDs that have been requested from Kubernetes but have not been detected in any POD
   // snapshot yet but already known by the scheduler backend. Mapped to the ResourceProfile id.
-  private val schedulerKnownNewlyCreatedExecs = mutable.LinkedHashMap.empty[Long, Int]
+   val schedulerKnownNewlyCreatedExecs = mutable.LinkedHashMap.empty[Long, Int]
 
-  private val dynamicAllocationEnabled = Utils.isDynamicAllocationEnabled(conf)
+   val dynamicAllocationEnabled = Utils.isDynamicAllocationEnabled(conf)
 
   // visible for tests
-  private[k8s] val numOutstandingPods = new AtomicInteger()
+  val numOutstandingPods = new AtomicInteger()
 
-  private var lastSnapshot = ExecutorPodsSnapshot()
+   var lastSnapshot = ExecutorPodsSnapshot()
 
   // Executors that have been deleted by this allocator but not yet detected as deleted in
   // a snapshot from the API server. This is used to deny registration from these executors
   // if they happen to come up before the deletion takes effect.
-  @volatile private var deletedExecutorIds = Set.empty[Long]
+  @volatile var deletedExecutorIds = Set.empty[Long]
 
   def start(applicationId: String, schedulerBackend: KubernetesClusterSchedulerBackend): Unit = {
     snapshotsStore.addSubscriber(podAllocationDelay) {
@@ -117,10 +120,10 @@ private[spark] class ExecutorPodsAllocator(
 
   def isDeleted(executorId: String): Boolean = deletedExecutorIds.contains(executorId.toLong)
 
-  private def onNewSnapshots(
-      applicationId: String,
-      schedulerBackend: KubernetesClusterSchedulerBackend,
-      snapshots: Seq[ExecutorPodsSnapshot]): Unit = {
+  def onNewSnapshots(
+                              applicationId: String,
+                              schedulerBackend: KubernetesClusterSchedulerBackend,
+                              snapshots: Seq[ExecutorPodsSnapshot]): Unit = {
     val k8sKnownExecIds = snapshots.flatMap(_.executorPods.keys)
     newlyCreatedExecutors --= k8sKnownExecIds
     schedulerKnownNewlyCreatedExecs --= k8sKnownExecIds
@@ -308,11 +311,11 @@ private[spark] class ExecutorPodsAllocator(
     numOutstandingPods.set(totalPendingCount + newlyCreatedExecutors.size)
   }
 
-  private def requestNewExecutors(
-      expected: Int,
-      running: Int,
-      applicationId: String,
-      resourceProfileId: Int): Unit = {
+  def requestNewExecutors(
+                                   expected: Int,
+                                   running: Int,
+                                   applicationId: String,
+                                   resourceProfileId: Int): Unit = {
     val numExecutorsToAllocate = math.min(expected - running, podAllocationSize)
     logInfo(s"Going to request $numExecutorsToAllocate executors from Kubernetes for " +
       s"ResourceProfile Id: $resourceProfileId, target: $expected running: $running.")
@@ -354,7 +357,7 @@ private[spark] class ExecutorPodsAllocator(
     }
   }
 
-  private def isExecutorIdleTimedOut(state: ExecutorPodState, currentTime: Long): Boolean = {
+  def isExecutorIdleTimedOut(state: ExecutorPodState, currentTime: Long): Boolean = {
     try {
       val startTime = Instant.parse(state.pod.getStatus.getStartTime).toEpochMilli()
       currentTime - startTime > executorIdleTimeout

@@ -26,7 +26,7 @@ import org.apache.spark.deploy.k8s.KubernetesDriverConf
 import org.apache.spark.deploy.k8s.KubernetesUtils._
 import org.apache.spark.internal.Logging
 
-private[k8s] trait LoggingPodStatusWatcher extends Watcher[Pod] {
+trait LoggingPodStatusWatcher extends Watcher[Pod] {
   def watchOrStop(submissionId: String): Boolean
   def reset(): Unit
 }
@@ -37,7 +37,7 @@ private[k8s] trait LoggingPodStatusWatcher extends Watcher[Pod] {
  *
  * @param conf kubernetes driver conf.
  */
-private[k8s] class LoggingPodStatusWatcherImpl(conf: KubernetesDriverConf)
+class LoggingPodStatusWatcherImpl(conf: KubernetesDriverConf)
   extends LoggingPodStatusWatcher with Logging {
 
   private val appId = conf.appId

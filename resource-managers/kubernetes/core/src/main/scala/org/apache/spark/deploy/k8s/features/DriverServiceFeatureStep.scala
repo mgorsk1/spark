@@ -20,9 +20,11 @@ import scala.collection.JavaConverters._
 
 import io.fabric8.kubernetes.api.model.{HasMetadata, ServiceBuilder}
 
+import org.apache.spark.deploy.k8s.Config.KUBERNETES_VOLCANO_ENABLED
 import org.apache.spark.deploy.k8s.{KubernetesDriverConf, KubernetesUtils, SparkPod}
 import org.apache.spark.deploy.k8s.Constants._
 import org.apache.spark.internal.{config, Logging}
+import org.apache.spark.deploy.k8s.submit.KubernetesClientUtils
 import org.apache.spark.util.{Clock, SystemClock}
 
 private[spark] class DriverServiceFeatureStep(
@@ -66,6 +68,16 @@ private[spark] class DriverServiceFeatureStep(
   }
 
   override def getAdditionalKubernetesResources(): Seq[HasMetadata] = {
+    val k8sPodLabels = kubernetesConf.labels.asJava
+    val volcanoPodLabels = Map(
+      VOLCANO_JOB_NAME_LABEL_KEY -> KubernetesClientUtils.DRIVER_VOLCANO_JOB_NAME,
+    ).asJava
+
+    // For volcano, pod labels are stripped out so the pod label must be a volcano specific one
+    // We are using the job name since it is unique per spark-submit invocation
+    val podSelector = if (kubernetesConf.sparkConf.get(KUBERNETES_VOLCANO_ENABLED)) volcanoPodLabels else k8sPodLabels
+    logInfo(s"Using driver pod selector label: ${podSelector}")
+
     val driverService = new ServiceBuilder()
       .withNewMetadata()
         .withName(resolvedServiceName)
@@ -73,7 +85,7 @@ private[spark] class DriverServiceFeatureStep(
         .endMetadata()
       .withNewSpec()
         .withClusterIP("None")
-        .withSelector(kubernetesConf.labels.asJava)
+        .withSelector(podSelector)
         .addNewPort()
           .withName(DRIVER_PORT_NAME)
           .withPort(driverPort)

@@ -20,19 +20,19 @@ package org.apache.spark.deploy.k8s.submit
 import java.io.{File, StringWriter}
 import java.nio.charset.MalformedInputException
 import java.util.Properties
-
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.io.{Codec, Source}
 
 import io.fabric8.kubernetes.api.model.{ConfigMap, ConfigMapBuilder, KeyToPath}
+import io.fabric8.kubernetes.api.model.volcano.batch.Job
 
 import org.apache.spark.SparkConf
 import org.apache.spark.deploy.k8s.{Config, Constants, KubernetesUtils}
 import org.apache.spark.deploy.k8s.Constants.ENV_SPARK_CONF_DIR
 import org.apache.spark.internal.Logging
 
-private[spark] object KubernetesClientUtils extends Logging {
+object KubernetesClientUtils extends Logging {
 
   // Config map name can be 63 chars at max.
   def configMapName(prefix: String): String = s"${prefix.take(54)}-conf-map"
@@ -40,6 +40,11 @@ private[spark] object KubernetesClientUtils extends Logging {
   val configMapNameExecutor: String = configMapName(s"spark-exec-${KubernetesUtils.uniqueID()}")
 
   val configMapNameDriver: String = configMapName(s"spark-drv-${KubernetesUtils.uniqueID()}")
+
+  private val VOLCANO_JOB_ID: String = KubernetesUtils.uniqueID()
+
+  val DRIVER_VOLCANO_JOB_NAME: String = s"s-drv-${VOLCANO_JOB_ID}"
+  val EXECUTOR_VOLCANO_JOB_NAME_PREFIX: String = s"s-exc-${VOLCANO_JOB_ID}"
 
   private def buildStringFromPropertiesMap(configMapName: String,
       propertiesMap: Map[String, String]): String = {
@@ -169,5 +174,21 @@ private[spark] object KubernetesClientUtils extends Logging {
       }
     }
     confFiles
+  }
+
+  def getVolcanoExecutorJobNamePrefix(clusterMode: Boolean): String = {
+    // If spark-submit was configured to use cluster mode, then use the job name prefix in sync
+    // with the driver job for volcano
+    // in client mode we don't create a driver job, so create a new prefix
+    if (clusterMode) {
+      System.getProperty(Constants.EXECUTOR_VOLCANO_JOB_PREFIX_KEY)
+    }
+    else {
+      KubernetesClientUtils.EXECUTOR_VOLCANO_JOB_NAME_PREFIX
+    }
+  }
+
+  def getVolcanoExecutorJobNames(executorIdsToJobs: scala.collection.Map[Long, Job]): List[String] = {
+    executorIdsToJobs.values.map(job => job.getMetadata.getName).toList
   }
 }

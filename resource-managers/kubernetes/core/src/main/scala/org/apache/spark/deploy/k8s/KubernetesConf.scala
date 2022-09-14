@@ -32,7 +32,7 @@ import org.apache.spark.util.Utils
 /**
  * Structure containing metadata for Kubernetes logic to build Spark pods.
  */
-private[spark] abstract class KubernetesConf(val sparkConf: SparkConf) {
+abstract class KubernetesConf(val sparkConf: SparkConf) {
 
   val resourceNamePrefix: String
   def labels: Map[String, String]
@@ -73,7 +73,7 @@ private[spark] abstract class KubernetesConf(val sparkConf: SparkConf) {
   def getOption(key: String): Option[String] = sparkConf.getOption(key)
 }
 
-private[spark] class KubernetesDriverConf(
+class KubernetesDriverConf(
     sparkConf: SparkConf,
     val appId: String,
     val mainAppResource: MainAppResource,
@@ -90,7 +90,9 @@ private[spark] class KubernetesDriverConf(
   override def labels: Map[String, String] = {
     val presetLabels = Map(
       SPARK_APP_ID_LABEL -> appId,
-      SPARK_ROLE_LABEL -> SPARK_POD_DRIVER_ROLE)
+      SPARK_ROLE_LABEL -> SPARK_POD_DRIVER_ROLE,
+      VOLCANO_POD_ADMISSION_LABEL -> true.toString
+    )
     val driverCustomLabels = KubernetesUtils.parsePrefixedKeyValuePairs(
       sparkConf, KUBERNETES_DRIVER_LABEL_PREFIX)
 
@@ -147,6 +149,7 @@ private[spark] class KubernetesExecutorConf(
       SPARK_EXECUTOR_ID_LABEL -> executorId,
       SPARK_APP_ID_LABEL -> appId,
       SPARK_ROLE_LABEL -> SPARK_POD_EXECUTOR_ROLE,
+      VOLCANO_POD_ADMISSION_LABEL -> true.toString,
       SPARK_RESOURCE_PROFILE_ID_LABEL -> resourceProfileId.toString)
 
     val executorCustomLabels = KubernetesUtils.parsePrefixedKeyValuePairs(
